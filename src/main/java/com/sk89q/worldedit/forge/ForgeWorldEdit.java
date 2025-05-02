@@ -64,6 +64,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static net.minecraftforge.event.entity.player.PlayerInteractEvent.Action;
@@ -182,6 +183,8 @@ public class ForgeWorldEdit {
         resetSession((EntityPlayerMP) e.entity);
     }
 
+    private final Map<EntityPlayerMP, Long> ratelimit = new WeakHashMap<>();
+
     @SubscribeEvent
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (platform == null) {
@@ -197,6 +200,15 @@ public class ForgeWorldEdit {
         if (!(event.entityPlayer instanceof EntityPlayerMP))
             return;
         val playerMP = (EntityPlayerMP) event.entityPlayer;
+
+        val currentTick = event.world.getTotalWorldTime();
+        if (ratelimit.containsKey(playerMP)) {
+            val prevTick = (long) ratelimit.get(playerMP);
+            if (currentTick - prevTick < 5) {
+                return;
+            }
+        }
+        ratelimit.put(playerMP, currentTick);
 
         ForgePlayer player = wrap(playerMP);
         ForgeWorld world = getWorld(playerMP.worldObj);
